@@ -58,17 +58,13 @@ export const SetSchema = z.object({
 });
 
 export const WorkoutExerciseSchema = z.object({
-  exerciseId: z.string().uuid(),
+  exerciseId: z.string(),
   sets: z.array(SetSchema).min(1)
 });
 
 export const WorkoutSchema = z.object({
-  id: z.string().uuid().optional(),
-  userId: z.string().uuid(),
-  notes: z.string().optional(),
-  exercises: z.array(WorkoutExerciseSchema).min(1),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional()
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  exercises: z.array(WorkoutExerciseSchema).min(1)
 });
 
 export class ValidationError {

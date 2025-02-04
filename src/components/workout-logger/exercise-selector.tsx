@@ -1,31 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExerciseStore } from '@/lib/store/exercise-store';
 import type { Exercise } from '@/types/exercise';
+import { Input } from '@/components/ui/input';
 
 interface ExerciseSelectorProps {
-  onSelect: (exercise: Exercise) => void;
+  onSelect?: (exercises: Exercise[]) => void;
 }
 
 export function ExerciseSelector({ onSelect }: ExerciseSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const { exercises, isLoading, setExercises, setLoading, setError } = useExerciseStore();
 
   useEffect(() => {
@@ -46,48 +46,82 @@ export function ExerciseSelector({ onSelect }: ExerciseSelectorProps) {
     fetchExercises();
   }, [setExercises, setLoading, setError]);
 
-  const handleSelect = (exercise: Exercise) => {
-    setSelectedExercise(exercise);
-    onSelect(exercise);
+  const filteredExercises = exercises.filter(exercise =>
+    exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const toggleExercise = (exercise: Exercise) => {
+    setSelectedExercises(prev => {
+      const isSelected = prev.some(e => e.id === exercise.id);
+      if (isSelected) {
+        return prev.filter(e => e.id !== exercise.id);
+      } else {
+        return [...prev, exercise];
+      }
+    });
+  };
+
+  const handleAddExercises = () => {
+    if (onSelect) {
+      onSelect(selectedExercises);
+    }
     setOpen(false);
+    setSelectedExercises([]);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-          disabled={isLoading}
-        >
-          {selectedExercise ? selectedExercise.name : "Select exercise..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button size="icon" className="rounded-full shadow-lg">
+          <Plus className="h-6 w-6" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput placeholder="Search exercises..." />
-          <CommandEmpty>No exercise found.</CommandEmpty>
-          <CommandGroup>
-            {exercises.map((exercise) => (
-              <CommandItem
-                key={exercise.id}
-                onSelect={() => handleSelect(exercise)}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selectedExercise?.id === exercise.id ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {exercise.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[80vh]">
+        <SheetHeader className="space-y-4">
+          <SheetTitle>Select Exercises</SheetTitle>
+          <SheetDescription>
+            Choose exercises to add to your workout
+          </SheetDescription>
+          <Input
+            placeholder="Search exercises..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
+        </SheetHeader>
+        <ScrollArea className="flex-1 my-4 h-[calc(100%-10rem)]">
+          <div className="space-y-2 pr-4">
+            {filteredExercises.map((exercise) => {
+              const isSelected = selectedExercises.some(e => e.id === exercise.id);
+              return (
+                <Button
+                  key={exercise.id}
+                  variant={isSelected ? "default" : "outline"}
+                  className="w-full justify-start"
+                  onClick={() => toggleExercise(exercise)}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      isSelected ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {exercise.name}
+                </Button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+        <SheetFooter>
+          <Button 
+            onClick={handleAddExercises} 
+            disabled={selectedExercises.length === 0}
+            className="w-full"
+          >
+            Add {selectedExercises.length} Exercise{selectedExercises.length !== 1 ? 's' : ''}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

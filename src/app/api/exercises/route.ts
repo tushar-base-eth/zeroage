@@ -5,7 +5,8 @@ import { ExerciseSchema } from '@/lib/validations/schema';
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data } = await supabase.from('exercises').select('*');
     return NextResponse.json(data);
   } catch {
@@ -15,7 +16,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const json = await request.json();
     
     const result = ExerciseSchema.safeParse(json);

@@ -1,34 +1,37 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { WorkoutLogger } from '@/components/workout-logger/workout-logger';
 import { ExerciseSelector } from '@/components/workout-logger/exercise-selector';
+import { BottomNav } from '@/components/layout/bottom-nav';
+import { useWorkoutStore } from '@/lib/store/workout-store';
+import type { Exercise } from '@/types/exercise';
 
 export default function WorkoutPage() {
-  return (
-    <div className="container py-8 space-y-6">
-      <div className="flex flex-col space-y-4">
-        <h1 className="text-3xl font-bold">Workout</h1>
-      </div>
+  const { selectedExercises, setSelectedExercises } = useWorkoutStore();
 
-      <div className="space-y-6">
-        <ExerciseSelector />
-        <WorkoutLogger />
+  const handleExercisesSelected = (exercises: Exercise[]) => {
+    setSelectedExercises([...selectedExercises, ...exercises]);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Main Content */}
+      <div className="flex-1">
+        <div className="w-full max-w-md mx-auto relative">
+          {/* Exercise Selector Button */}
+          <div className="fixed top-4 right-4 z-10">
+            <ExerciseSelector onSelect={handleExercisesSelected} />
+          </div>
+          
+          {/* Empty State or Workout Logger */}
+          <WorkoutLogger exercises={selectedExercises} onExercisesChange={setSelectedExercises} />
+        </div>
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-background p-4">
-        <div className="container flex justify-between items-center">
-          <Button variant="ghost" className="bg-primary/10" asChild>
-            <Link href="/workout">Workout</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/log">Log</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/dashboard">Dashboard</Link>
-          </Button>
-        </div>
-      </div>
+      <BottomNav />
     </div>
   );
 }

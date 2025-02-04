@@ -1,53 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Save, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { ExerciseSelector } from './exercise-selector';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useWorkoutStore } from '@/lib/store/workout-store';
 import type { Exercise, ExerciseSet } from '@/types/exercise';
-import crypto from 'crypto';
+
+// Generate a UUID v4-like string
+const generateId = () => {
+  const hex = '0123456789abcdef';
+  let str = '';
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) {
+      str += '-';
+      continue;
+    }
+    if (i === 14) {
+      str += '4'; // Version 4 UUID
+      continue;
+    }
+    if (i === 19) {
+      str += hex[(Math.random() * 4) | 8]; // Variant
+      continue;
+    }
+    str += hex[Math.floor(Math.random() * 16)];
+  }
+  return str;
+};
 
 interface WorkoutExercise {
   exercise: Exercise;
   sets: ExerciseSet[];
 }
 
-export function WorkoutLogger() {
-  const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
-  const [notes, setNotes] = useState('');
+interface WorkoutLoggerProps {
+  exercises: Exercise[];
+  onExercisesChange: (exercises: Exercise[]) => void;
+}
+
+export function WorkoutLogger({ exercises, onExercisesChange }: WorkoutLoggerProps) {
+  const [workoutExercises, setWorkoutExercises] = useState<WorkoutExercise[]>([]);
   const { setCurrentWorkout } = useWorkoutStore();
 
-  const handleAddExercise = (exercise: Exercise) => {
-    const newSet: ExerciseSet = {
-      id: crypto.randomUUID(),
-      exerciseId: exercise.id,
-      workoutId: crypto.randomUUID(), // This will be replaced when saving
-      reps: 0,
-      weight: 0,
-      unit: 'kg',
-      created_at: new Date().toISOString(),
-    };
-    setExercises([...exercises, { exercise, sets: [newSet] }]);
-  };
+  // Update workoutExercises when exercises prop changes
+  useEffect(() => {
+    const newExercises = exercises.filter(
+      exercise => !workoutExercises.some(we => we.exercise.id === exercise.id)
+    ).map(exercise => ({
+      exercise,
+      sets: [{
+        id: generateId(),
+        exerciseId: exercise.id,
+        reps: 0,
+        weight: 0,
+        unit: 'kg',
+        created_at: new Date().toISOString(),
+      }]
+    }));
+    
+    setWorkoutExercises(prev => [...prev, ...newExercises]);
+  }, [exercises]);
 
   const handleAddSet = (exerciseIndex: number) => {
-    const newExercises = [...exercises];
-    const exercise = newExercises[exerciseIndex].exercise;
+    const newWorkoutExercises = [...workoutExercises];
+    const exercise = newWorkoutExercises[exerciseIndex].exercise;
     const newSet: ExerciseSet = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       exerciseId: exercise.id,
-      workoutId: crypto.randomUUID(), // This will be replaced when saving
       reps: 0,
       weight: 0,
       unit: 'kg',
       created_at: new Date().toISOString(),
     };
-    newExercises[exerciseIndex].sets.push(newSet);
-    setExercises(newExercises);
+    newWorkoutExercises[exerciseIndex].sets.push(newSet);
+    setWorkoutExercises(newWorkoutExercises);
   };
 
   const handleUpdateSet = (
@@ -56,113 +85,149 @@ export function WorkoutLogger() {
     field: 'reps' | 'weight',
     value: string
   ) => {
-    const newExercises = [...exercises];
-    const set = newExercises[exerciseIndex].sets[setIndex];
+    const newWorkoutExercises = [...workoutExercises];
+    const set = newWorkoutExercises[exerciseIndex].sets[setIndex];
     set[field] = parseInt(value) || 0;
-    setExercises(newExercises);
+    setWorkoutExercises(newWorkoutExercises);
   };
 
   const handleRemoveSet = (exerciseIndex: number, setIndex: number) => {
-    const newExercises = [...exercises];
-    newExercises[exerciseIndex].sets.splice(setIndex, 1);
-    setExercises(newExercises);
+    const newWorkoutExercises = [...workoutExercises];
+    newWorkoutExercises[exerciseIndex].sets.splice(setIndex, 1);
+    if (newWorkoutExercises[exerciseIndex].sets.length === 0) {
+      newWorkoutExercises.splice(exerciseIndex, 1);
+      // Update parent's exercise list
+      onExercisesChange(exercises.filter(e => e.id !== workoutExercises[exerciseIndex].exercise.id));
+    }
+    setWorkoutExercises(newWorkoutExercises);
   };
 
   const handleSaveWorkout = async () => {
     try {
+      // Validate that all sets have positive reps and weights
+      const hasInvalidSets = workoutExercises.some(exercise => 
+        exercise.sets.some(set => set.reps <= 0 || set.weight <= 0)
+      );
+
+      if (hasInvalidSets) {
+        throw new Error('All sets must have positive reps and weights');
+      }
+
       const response = await fetch('/api/workouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exercises: exercises.map(e => ({
+          date: new Date().toISOString().split('T')[0],
+          exercises: workoutExercises.map(e => ({
             exerciseId: e.exercise.id,
-            sets: e.sets
-          })),
-          notes
+            sets: e.sets.map(set => ({
+              reps: set.reps,
+              weight: set.weight,
+              unit: set.unit
+            }))
+          }))
         })
       });
 
-      if (!response.ok) throw new Error('Failed to save workout');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save workout');
+      }
       
       const workout = await response.json();
       setCurrentWorkout(workout);
-      // Reset form
-      setExercises([]);
-      setNotes('');
+      setWorkoutExercises([]);
+      onExercisesChange([]);
     } catch (error) {
       console.error('Failed to save workout:', error);
+      throw error;
     }
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>New Workout</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <ExerciseSelector onSelect={handleAddExercise} />
-          </div>
-          
-          {exercises.map((exercise, exerciseIndex) => (
-            <Card key={exerciseIndex}>
-              <CardHeader>
-                <CardTitle>{exercise.exercise.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {exercise.sets.map((set, setIndex) => (
-                    <div key={setIndex} className="flex items-center space-x-2">
-                      <Input
-                        type="number"
-                        placeholder="Weight"
-                        value={set.weight || ''}
-                        onChange={(e) => handleUpdateSet(exerciseIndex, setIndex, 'weight', e.target.value)}
-                        className="w-24"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Reps"
-                        value={set.reps || ''}
-                        onChange={(e) => handleUpdateSet(exerciseIndex, setIndex, 'reps', e.target.value)}
-                        className="w-24"
-                      />
+    <div className="space-y-4 relative h-full">
+      {workoutExercises.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No exercises added yet. Click the + button to add exercises.
+        </div>
+      ) : (
+        <ScrollArea className="h-[calc(100vh-7rem)]">
+          <div className="space-y-3 pr-4 pb-16">
+            {workoutExercises.map((workoutExercise, exerciseIndex) => (
+              <Card key={workoutExercise.exercise.id} className="bg-white shadow-sm">
+                <CardContent className="p-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-sm">{workoutExercise.exercise.name}</h3>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => handleAddSet(exerciseIndex)}
                       >
-                        <Trash className="h-4 w-4" />
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAddSet(exerciseIndex)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Set
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          <Textarea
-            placeholder="Workout notes..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleSaveWorkout} disabled={exercises.length === 0}>
+                    <div className="space-y-2">
+                      {workoutExercise.sets.map((set, setIndex) => (
+                        <div key={set.id} className="flex items-center gap-2">
+                          <div className="w-6 text-xs text-muted-foreground font-medium">
+                            #{setIndex + 1}
+                          </div>
+                          <div className="flex-1 grid grid-cols-2 gap-2">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={set.weight || ''}
+                                onChange={(e) =>
+                                  handleUpdateSet(exerciseIndex, setIndex, 'weight', e.target.value)
+                                }
+                                className="w-16 h-8 text-sm"
+                              />
+                              <span className="text-xs text-muted-foreground">kg</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={set.reps || ''}
+                                onChange={(e) =>
+                                  handleUpdateSet(exerciseIndex, setIndex, 'reps', e.target.value)
+                                }
+                                className="w-16 h-8 text-sm"
+                              />
+                              <span className="text-xs text-muted-foreground">reps</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
+                          >
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+      {workoutExercises.length > 0 && (
+        <div className="fixed bottom-20 right-4 z-10">
+          <Button 
+            size="sm"
+            className="bg-[#14171F] text-white hover:bg-[#14171F]/90 shadow-lg" 
+            onClick={handleSaveWorkout}
+          >
             <Save className="h-4 w-4 mr-2" />
             Save Workout
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import type { Database } from '@/types/supabase'
 
-const PUBLIC_ROUTES = ["/auth/signin", "/auth/signup", "/auth/callback"]
+const PUBLIC_ROUTES = ["/", "/auth/signin", "/auth/signup", "/auth/callback"]
 const AUTH_ROUTES = ["/auth/signin", "/auth/signup"]
 
 export async function middleware(req: NextRequest) {

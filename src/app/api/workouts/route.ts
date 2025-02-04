@@ -5,7 +5,8 @@ import { WorkoutSchema } from '@/lib/validations/schema';
 
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
 
@@ -53,13 +54,21 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const json = await request.json();
 
-    const result = WorkoutSchema.safeParse(json);
+    // Add date field
+    const workoutData = {
+      ...json,
+      date: new Date().toISOString().split('T')[0],
+    };
+
+    const result = WorkoutSchema.safeParse(workoutData);
     if (!result.success) {
+      console.error('Validation error:', result.error);
       return NextResponse.json(
-        { error: 'Invalid workout data' },
+        { error: 'Invalid workout data', details: result.error.errors },
         { status: 400 }
       );
     }
@@ -72,11 +81,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: workout } = await supabase
+    const { data: workout, error: workoutError } = await supabase
       .from('workouts')
-      .insert([{ user_id: user.user.id, ...result.data }])
+      .insert([{ 
+        user_id: user.user.id,
+        date: workoutData.date,
+        notes: workoutData.notes
+      }])
       .select()
       .single();
+
+    if (workoutError) throw workoutError;
 
     // Create workout exercises and sets
     for (const exercise of result.data.exercises) {
@@ -93,7 +108,9 @@ export async function POST(request: Request) {
 
       const setsToInsert = exercise.sets.map(set => ({
         workout_exercise_id: workoutExercise.id,
-        ...set
+        reps: set.reps,
+        weight: set.weight,
+        unit: set.unit
       }));
 
       const { error: setsError } = await supabase
@@ -104,9 +121,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(workout);
-  } catch {
+  } catch (error) {
+    console.error('Failed to save workout:', error);
     return NextResponse.json(
-      { error: 'Failed to create workout' },
+      { error: 'Failed to save workout' },
       { status: 500 }
     );
   }
