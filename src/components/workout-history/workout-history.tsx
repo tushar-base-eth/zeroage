@@ -9,29 +9,39 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import type { Workout } from '@/types/api';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ChevronRight, Dumbbell } from 'lucide-react';
 
-export function WorkoutHistory() {
-  const { toast } = useToast();
-  const { data: workouts, isLoading, error } = useQuery<Workout[]>({
-    queryKey: ['workouts'],
-    queryFn: async () => {
-      const response = await fetch('/api/workouts');
-      if (!response.ok) throw new Error('Failed to fetch workouts');
-      return response.json();
-    },
-  });
+interface WorkoutHistoryProps {
+  workouts?: Workout[];
+  isLoading?: boolean;
+  error?: Error | null;
+  showDate?: boolean;
+  maxHeight?: string;
+  emptyMessage?: string;
+}
 
+export function WorkoutHistory({ 
+  workouts,
+  isLoading,
+  error,
+  showDate = true,
+  maxHeight = '400px',
+  emptyMessage = 'No workouts recorded'
+}: WorkoutHistoryProps) {
+  const { toast } = useToast();
+
+  // Show error toast if error is provided
   if (error) {
     toast({
       title: 'Error',
       description: 'Failed to load workout history',
-      type: 'error',
+      variant: 'destructive',
     });
     return null;
   }
@@ -39,113 +49,75 @@ export function WorkoutHistory() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
       </div>
     );
   }
 
   if (!workouts?.length) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-center text-muted-foreground">No workouts found</p>
-        </CardContent>
-      </Card>
+      <div className="text-center text-muted-foreground py-8">
+        {emptyMessage}
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {workouts.map((workout) => (
-        <WorkoutCard key={workout.id} workout={workout} />
-      ))}
-    </div>
+    <ScrollArea className={`h-[${maxHeight}] pr-4`}>
+      <div className="space-y-4">
+        {workouts.map((workout) => (
+          <WorkoutCard 
+            key={workout.id} 
+            workout={workout}
+            showDate={showDate}
+          />
+        ))}
+      </div>
+    </ScrollArea>
   );
 }
 
 interface WorkoutCardProps {
   workout: Workout;
+  showDate?: boolean;
 }
 
-function WorkoutCard({ workout }: WorkoutCardProps) {
-  const { toast } = useToast();
-
-  const totalVolume = workout.exercises.reduce(
-    (total, exercise) =>
-      total +
-      exercise.sets.reduce((setTotal, set) => setTotal + set.weight * set.reps, 0),
-    0
-  );
-
-  const handleDelete = async () => {
-    try {
-      const response = await fetch(`/api/workouts/${workout.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete workout');
-
-      toast({
-        title: 'Workout Deleted',
-        description: 'Your workout has been successfully deleted.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete workout. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
+function WorkoutCard({ workout, showDate = true }: WorkoutCardProps) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <CardTitle>{format(parseISO(workout.date), 'MMMM d, yyyy')}</CardTitle>
-            <CardDescription>
-              {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} |{' '}
-              {totalVolume.toLocaleString()} kg total volume
-            </CardDescription>
+    <Card className="bg-muted/50">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="font-medium">
+              {showDate ? (
+                format(new Date(workout.created_at), 'MMM d, yyyy h:mm a')
+              ) : (
+                format(new Date(workout.created_at), 'h:mm a')
+              )}
+            </div>
+            <div className="mt-2 space-y-2">
+              {workout.exercises.map((exercise) => (
+                <div key={exercise.exercise.id} className="text-sm">
+                  <div className="font-medium">{exercise.exercise.name}</div>
+                  <div className="text-muted-foreground">
+                    {exercise.sets.map((set, i) => (
+                      <span key={i}>
+                        {i > 0 && ' • '}
+                        {set.reps} reps @ {set.weight}kg
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="shrink-0">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {workout.exercises.map((exercise) => (
-            <div key={exercise.exercise.id} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                <h4 className="font-medium">{exercise.exercise.name}</h4>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                {exercise.sets.map((set, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between rounded-md border px-2 py-1"
-                  >
-                    <span className="text-muted-foreground">Set {index + 1}</span>
-                    <span>
-                      {set.weight}kg × {set.reps}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
       </CardContent>
-      <CardFooter>
-        <Button variant="destructive" size="sm" onClick={handleDelete}>
-          Delete Workout
-        </Button>
-      </CardFooter>
     </Card>
   );
 }

@@ -1,15 +1,20 @@
 -- Insert default exercises
-INSERT INTO public.exercises (name, muscle_groups, equipment, description) VALUES
-  ('Push-ups', ARRAY['chest', 'shoulders', 'arms'], 'bodyweight', 'Classic bodyweight exercise for upper body strength'),
-  ('Pull-ups', ARRAY['back', 'arms'], 'bodyweight', 'Upper body pulling exercise'),
-  ('Squats', ARRAY['legs'], 'bodyweight', 'Fundamental lower body exercise'),
-  ('Deadlift', ARRAY['back', 'legs'], 'barbell', 'Compound exercise for posterior chain'),
-  ('Bench Press', ARRAY['chest', 'shoulders', 'arms'], 'barbell', 'Classic chest exercise'),
-  ('Overhead Press', ARRAY['shoulders', 'arms'], 'barbell', 'Vertical pressing movement'),
-  ('Rows', ARRAY['back'], 'barbell', 'Horizontal pulling movement'),
-  ('Lunges', ARRAY['legs'], 'bodyweight', 'Unilateral leg exercise'),
-  ('Dips', ARRAY['chest', 'arms'], 'bodyweight', 'Upper body pushing exercise'),
-  ('Plank', ARRAY['core'], 'bodyweight', 'Core stability exercise');
+INSERT INTO public.exercises (name, primary_muscle, secondary_muscles) VALUES
+  ('Bench Press', 'chest', ARRAY['shoulders', 'triceps']),
+  ('Squat', 'quadriceps', ARRAY['hamstrings', 'glutes']),
+  ('Deadlift', 'back', ARRAY['hamstrings', 'glutes']),
+  ('Pull-ups', 'back', ARRAY['biceps', 'shoulders']),
+  ('Overhead Press', 'shoulders', ARRAY['triceps', 'chest']),
+  ('Barbell Row', 'back', ARRAY['biceps', 'shoulders']),
+  ('Romanian Deadlift', 'hamstrings', ARRAY['glutes', 'back']),
+  ('Incline Bench Press', 'chest', ARRAY['shoulders', 'triceps']),
+  ('Front Squat', 'quadriceps', ARRAY['core', 'glutes']),
+  ('Barbell Curl', 'biceps', ARRAY['forearms']),
+  ('Tricep Extension', 'triceps', ARRAY[]::text[]),
+  ('Lateral Raise', 'shoulders', ARRAY[]::text[]),
+  ('Leg Press', 'quadriceps', ARRAY['hamstrings', 'glutes']),
+  ('Dumbbell Row', 'back', ARRAY['biceps', 'shoulders']),
+  ('Push-ups', 'chest', ARRAY['shoulders', 'triceps']);
 
 -- Create sample users
 DO $$
@@ -17,8 +22,6 @@ DECLARE
   user1_id UUID;
   user2_id UUID;
   user3_id UUID;
-  user4_id UUID;
-  user5_id UUID;
 BEGIN
   -- Create temporary table for user IDs
   CREATE TEMP TABLE temp_users (
@@ -48,7 +51,7 @@ BEGIN
         gen_random_uuid(),
         'authenticated',
         'authenticated',
-        'user11@example.com',
+        'john@example.com',
         crypt('password123', gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}',
@@ -63,7 +66,7 @@ BEGIN
         gen_random_uuid(),
         'authenticated',
         'authenticated',
-        'user22@example.com',
+        'sarah@example.com',
         crypt('password123', gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}',
@@ -78,37 +81,7 @@ BEGIN
         gen_random_uuid(),
         'authenticated',
         'authenticated',
-        'user33@example.com',
-        crypt('password123', gen_salt('bf')),
-        now(),
-        '{"provider":"email","providers":["email"]}',
-        '{}',
-        now(),
-        now(),
-        '',
-        ''
-      ),
-      (
-        '00000000-0000-0000-0000-000000000000',
-        gen_random_uuid(),
-        'authenticated',
-        'authenticated',
-        'user44@example.com',
-        crypt('password123', gen_salt('bf')),
-        now(),
-        '{"provider":"email","providers":["email"]}',
-        '{}',
-        now(),
-        now(),
-        '',
-        ''
-      ),
-      (
-        '00000000-0000-0000-0000-000000000000',
-        gen_random_uuid(),
-        'authenticated',
-        'authenticated',
-        'user55@example.com',
+        'mike@example.com',
         crypt('password123', gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}',
@@ -127,53 +100,113 @@ BEGIN
   SELECT id INTO user1_id FROM temp_users WHERE row_num = 1;
   SELECT id INTO user2_id FROM temp_users WHERE row_num = 2;
   SELECT id INTO user3_id FROM temp_users WHERE row_num = 3;
-  SELECT id INTO user4_id FROM temp_users WHERE row_num = 4;
-  SELECT id INTO user5_id FROM temp_users WHERE row_num = 5;
 
   -- Insert profiles for users
-  INSERT INTO public.profiles (id, username, full_name, avatar_url, created_at, updated_at)
+  INSERT INTO public.profiles (user_id, name, weight, height, unit, created_at, updated_at)
   VALUES
-    (user1_id, 'johndoe1', 'John Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=john', now(), now()),
-    (user2_id, 'janedoe2', 'Jane Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane', now(), now()),
-    (user3_id, 'mikebrown3', 'Mike Brown', 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike', now(), now()),
-    (user4_id, 'sarahlee4', 'Sarah Lee', 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah', now(), now()),
-    (user5_id, 'alexsmith5', 'Alex Smith', 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex', now(), now());
+    (user1_id, 'John Smith', 75.5, 180.0, 'kg', now(), now()),
+    (user2_id, 'Sarah Lee', 58.0, 165.0, 'kg', now(), now()),
+    (user3_id, 'Mike Brown', 82.0, 175.0, 'kg', now(), now());
 
-  -- Insert sample workouts
-  INSERT INTO public.workouts (user_id, date, created_at)
-  VALUES 
-    -- User 1's workouts
-    (user1_id, '2025-02-01', now()),
-    (user1_id, '2025-02-03', now()),
-    (user1_id, '2025-02-04', now()),
-    -- User 2's workouts
-    (user2_id, '2025-02-01', now()),
-    (user2_id, '2025-02-02', now()),
-    (user2_id, '2025-02-04', now());
-
-  -- Insert sample workout exercises
-  WITH workout_ids AS (
-    SELECT id FROM public.workouts ORDER BY id DESC LIMIT 6
+  -- Insert workouts for the past week with explicit timestamps
+  WITH workout_dates AS (
+    SELECT 
+      user1_id as user_id,
+      day::date as date,
+      day as ts
+    FROM generate_series(
+      now() - interval '7 days',
+      now(),
+      interval '2 days'
+    ) as day
+    UNION ALL
+    SELECT 
+      user2_id as user_id,
+      day::date as date,
+      day as ts
+    FROM generate_series(
+      now() - interval '7 days',
+      now(),
+      interval '3 days'
+    ) as day
+    UNION ALL
+    SELECT 
+      user3_id as user_id,
+      day::date as date,
+      day as ts
+    FROM generate_series(
+      now() - interval '7 days',
+      now(),
+      interval '2 days'
+    ) as day
   )
-  INSERT INTO public.workout_exercises (workout_id, exercise_id, created_at)
+  INSERT INTO public.workouts (user_id, date, created_at, updated_at)
+  SELECT 
+    user_id,
+    date,
+    ts,
+    ts
+  FROM workout_dates;
+
+  -- Insert workout sets
+  WITH workout_info AS (
+    SELECT 
+      w.id,
+      w.created_at as workout_time,
+      ROW_NUMBER() OVER (ORDER BY w.created_at) as row_num
+    FROM public.workouts w
+    ORDER BY w.created_at
+  )
+  INSERT INTO public.workout_sets (workout_id, exercise_id, set_number, reps, weight, created_at, updated_at)
   SELECT 
     w.id,
     e.id,
-    now()
-  FROM workout_ids w
+    s.set_number,
+    CASE 
+      WHEN e.name IN ('Bench Press', 'Squat', 'Deadlift') THEN 
+        floor(random() * 3 + 3)::integer  -- 3-5 reps for main lifts
+      WHEN e.name IN ('Pull-ups', 'Push-ups') THEN 
+        floor(random() * 5 + 8)::integer  -- 8-12 reps for bodyweight
+      ELSE 
+        floor(random() * 4 + 8)::integer  -- 8-12 reps for accessories
+    END as reps,
+    CASE 
+      WHEN e.name = 'Bench Press' THEN floor(random() * 20 + 60)  -- 60-80kg
+      WHEN e.name = 'Squat' THEN floor(random() * 30 + 80)        -- 80-110kg
+      WHEN e.name = 'Deadlift' THEN floor(random() * 40 + 100)    -- 100-140kg
+      WHEN e.name IN ('Pull-ups', 'Push-ups') THEN 0             -- Bodyweight
+      ELSE floor(random() * 15 + 20)                             -- 20-35kg for accessories
+    END as weight,
+    w.workout_time,
+    w.workout_time
+  FROM workout_info w
   CROSS JOIN LATERAL (
-    SELECT id FROM public.exercises ORDER BY RANDOM() LIMIT 3
-  ) e;
+    -- Push day exercises
+    SELECT id, name FROM public.exercises 
+    WHERE name IN ('Bench Press', 'Overhead Press', 'Incline Bench Press')
+    AND w.row_num % 3 = 1
+    UNION ALL
+    -- Pull day exercises
+    SELECT id, name FROM public.exercises 
+    WHERE name IN ('Deadlift', 'Pull-ups', 'Barbell Row')
+    AND w.row_num % 3 = 2
+    UNION ALL
+    -- Leg day exercises
+    SELECT id, name FROM public.exercises 
+    WHERE name IN ('Squat', 'Romanian Deadlift', 'Leg Press')
+    AND w.row_num % 3 = 0
+  ) e
+  CROSS JOIN (
+    SELECT generate_series(1, 3) as set_number
+  ) s;
 
-  -- Insert sample exercise sets
-  INSERT INTO public.exercise_sets (workout_exercise_id, reps, weight, unit, created_at)
-  SELECT 
-    we.id,
-    floor(random() * 10 + 5)::integer,  -- Random reps between 5-15
-    floor(random() * 50 + 20)::integer, -- Random weight between 20-70
-    'kg',
-    now()
-  FROM public.workout_exercises we;
+  -- Update has_sets flag for workouts (should be handled by trigger, but just in case)
+  UPDATE public.workouts w
+  SET has_sets = true
+  WHERE EXISTS (
+    SELECT 1 FROM public.workout_sets ws
+    WHERE ws.workout_id = w.id
+  );
 
   -- Clean up
   DROP TABLE temp_users;

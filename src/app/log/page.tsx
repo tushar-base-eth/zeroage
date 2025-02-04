@@ -7,12 +7,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { useQuery } from '@tanstack/react-query';
 import type { Workout } from '@/types/api';
+import { WorkoutHistory } from '@/components/workout-history/workout-history';
 
 export default function LogPage() {
   const [date, setDate] = useState<Date>(new Date());
-  const [selectedWorkouts, setSelectedWorkouts] = useState<Workout[]>([]);
 
-  const { data: workouts } = useQuery<Workout[]>({
+  const { data: workouts, isLoading, error } = useQuery<Workout[]>({
     queryKey: ['workouts'],
     queryFn: async () => {
       const response = await fetch('/api/workouts');
@@ -21,48 +21,54 @@ export default function LogPage() {
     },
   });
 
+  const selectedWorkouts = workouts?.filter(w => 
+    format(new Date(w.created_at), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+  ) || [];
+
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
     setDate(date);
-    const selectedDate = format(date, 'yyyy-MM-dd');
-    const filteredWorkouts = workouts?.filter(w => 
-      format(new Date(w.created_at), 'yyyy-MM-dd') === selectedDate
-    ) || [];
-    setSelectedWorkouts(filteredWorkouts);
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-[72px]">
-      <div className="container py-8 flex-1">
-        <h1 className="text-3xl font-bold mb-8">Workout Log</h1>
+    <div className="min-h-screen flex flex-col">
+      <div className="container py-4 flex-1">
+        <h1 className="text-2xl font-bold mb-4">Workout Log</h1>
 
-        <div className="grid gap-8 md:grid-cols-2">
-          <Card>
-            <CardContent className="p-6">
+        <div className="grid gap-4 md:grid-cols-[320px_1fr] flex-1">
+          <Card className="md:sticky md:top-4 h-fit">
+            <CardContent className="p-0">
               <Calendar
                 mode="single"
                 selected={date}
                 onSelect={handleDateSelect}
-                className="rounded-md border"
+                className="w-full"
+                disabled={(date) => date > new Date()}
+                initialFocus
+                fromDate={new Date(2024, 0, 1)} // Start from Jan 2024
               />
             </CardContent>
           </Card>
 
-          <div className="space-y-4">
-            {selectedWorkouts.map((workout) => (
-              <Card key={workout.id}>
-                <CardContent className="p-6">
-                  <div className="space-y-2">
-                    <p className="font-medium">
-                      {format(new Date(workout.created_at), 'MMMM d, yyyy')}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {workout.workout_sets?.length || 0} sets
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex flex-col flex-1">
+            <Card className="flex-1 flex flex-col">
+              <CardContent className="p-4 flex-1">
+                <h2 className="text-lg font-semibold mb-4">
+                  {format(date, 'MMMM d, yyyy')}
+                </h2>
+                
+                <div className="h-[calc(100vh-13rem)]">
+                  <WorkoutHistory 
+                    workouts={selectedWorkouts}
+                    isLoading={isLoading}
+                    error={error}
+                    showDate={false}
+                    maxHeight="100%"
+                    emptyMessage="No workouts recorded for this day"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

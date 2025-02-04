@@ -39,70 +39,8 @@ Fitness enthusiasts who want a simple yet effective way to log workouts and moni
 - **Chart Display:** Horizontal scrollable cards show bar charts for each muscle group.
 - **Calculation:** Aggregations are done in Supabase using SQL with proper indexing.
 
-### Database Schema
-# Database Schema
-
-## Users Table
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-## Profiles Table
-```sql
-CREATE TABLE profiles (
-  user_id UUID REFERENCES users(id),
-  name TEXT,
-  weight NUMERIC,
-  height NUMERIC,
-  body_fat NUMERIC,
-  date_of_birth DATE,
-  gender TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-## Exercises Table
-```sql
-CREATE TABLE exercises (
-  id SERIAL PRIMARY KEY,
-  name TEXT,
-  primary_muscle TEXT,
-  secondary_muscles TEXT[],
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-## Workouts Table
-```sql
-CREATE TABLE workouts (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  date DATE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-## Workout Sets Table
-```sql
-CREATE TABLE workout_sets (
-  id SERIAL PRIMARY KEY,
-  workout_id INTEGER REFERENCES workouts(id),
-  exercise_id INTEGER REFERENCES exercises(id),
-  set_number INTEGER,
-  reps INTEGER,
-  weight NUMERIC,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
+# Database Schema & API Specifications
+- refer to 5-DatabaseAndAPI.md 
 
 ### Technical Architecture
 # Technical Architecture
@@ -122,41 +60,6 @@ CREATE TABLE workout_sets (
 
 ## Future Proofing
 - Designed to easily extend to native mobile apps and further API integrations.
-
-### API Specifications
-# API Specifications
-
-## Endpoints Overview
-
-### 1. User Authentication
-- **POST /api/auth/signup**
-  - **Request:** JSON containing email, password, and profile data.
-  - **Response:** High-level confirmation with user details.
-- **POST /api/auth/login**
-  - **Request:** JSON containing email and password.
-  - **Response:** JWT token and user data.
-
-### 2. Workout Logging
-- **POST /api/workouts**
-  - **Request:** JSON with user ID, workout date, and an array of exercises (each with exercise ID and set details).
-  - **Response:** Confirmation with a workout ID and success message.
-
-### 3. Muscle Volume Aggregation
-- **GET /api/muscle-volume?range=<range>**
-  - **Description:** Returns an array of objects, each containing a primary muscle name and the total volume aggregated over the specified time range.
-  - **Supported Ranges:**
-    - `week`: Returns the total volume for each primary muscle over the last 7 days.
-    - `month`: Returns the total volume for each primary muscle over the last 4 weeks.
-    - `6month`: Returns the total volume for each primary muscle over the last 6 months.
-    - `year`: Returns the total volume for each primary muscle over the last 12 months.
-  - **Response Example:**
-    ```json
-    [
-      { "primary_muscle": "Chest", "volume": 350 },
-      { "primary_muscle": "Back", "volume": 420 },
-      { "primary_muscle": "Legs", "volume": 500 }
-    ]
-    ```
 
 ### 4. Handling Incomplete Data in the API
 

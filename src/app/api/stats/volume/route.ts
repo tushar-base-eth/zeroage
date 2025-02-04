@@ -1,6 +1,7 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import type { VolumeStats } from '@/types/api';
 
 // Get user's volume stats (daily, weekly, monthly)
 export async function GET(request: Request) {
@@ -31,11 +32,21 @@ export async function GET(request: Request) {
 
     const { data: stats, error: statsError } = await query;
 
-    if (statsError) throw statsError;
+    if (statsError) {
+      console.error('Error fetching volume stats:', statsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch volume stats' },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json(stats);
+    // For new users with no stats, return empty array
+    return NextResponse.json(stats || []);
   } catch (error) {
     console.error('Error fetching volume stats:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

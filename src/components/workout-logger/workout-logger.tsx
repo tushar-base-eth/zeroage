@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExerciseSelector } from './exercise-selector';
 import { SetLogger } from './set-logger';
 import { useToast } from '@/components/ui/use-toast';
 import type { Exercise, WorkoutSetInput } from '@/types/api';
-import { Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 
 interface ExerciseWithSets {
   exercise: Exercise;
@@ -18,19 +19,49 @@ interface ExerciseWithSets {
 export function WorkoutLogger() {
   const router = useRouter();
   const { toast } = useToast();
+  const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [exercises, setExercises] = useState<ExerciseWithSets[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddExercise = (exercise: Exercise) => {
-    // Check if exercise already exists
-    if (exercises.some(e => e.exercise.id === exercise.id)) {
-      toast({
-        title: 'Exercise already added',
-        type: 'warning',
+  const saveWorkoutMutation = useMutation({
+    mutationFn: async (data: { sets: { exercise_id: number; reps: number; weight: number; set_number: number }[] }) => {
+      const response = await fetch('/api/workouts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: new Date().toISOString().split('T')[0],
+          sets: data.sets,
+        }),
       });
-      return;
-    }
 
+      if (!response.ok) {
+        throw new Error('Failed to save workout');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Workout saved successfully',
+        description: 'Your workout has been logged.',
+      });
+      router.refresh();
+      setExercises([]);
+      setSelectedExercises([]);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to save workout',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleAddExercise = (exercise: Exercise) => {
+    setSelectedExercises(prev => [...prev, exercise]);
     setExercises(prev => [
       ...prev,
       {
@@ -38,6 +69,11 @@ export function WorkoutLogger() {
         sets: [{ set_number: 1, reps: 0, weight: 0 }],
       },
     ]);
+  };
+
+  const handleRemoveExercise = (exerciseId: number) => {
+    setSelectedExercises(prev => prev.filter(e => e.id !== exerciseId));
+    setExercises(prev => prev.filter(e => e.exercise.id !== exerciseId));
   };
 
   const handleAddSet = (exerciseId: number) => {
@@ -50,8 +86,8 @@ export function WorkoutLogger() {
               ...e.sets,
               {
                 set_number: e.sets.length + 1,
-                reps: 0,
-                weight: 0,
+                reps: e.sets[e.sets.length - 1]?.reps ?? 0,
+                weight: e.sets[e.sets.length - 1]?.weight ?? 0,
               },
             ],
           };
@@ -85,11 +121,19 @@ export function WorkoutLogger() {
     setExercises(prev =>
       prev.map(e => {
         if (e.exercise.id === exerciseId) {
+          const newSets = e.sets
+            .filter(s => s.set_number !== setNumber)
+            .map((s, i) => ({ ...s, set_number: i + 1 }));
+          
+          // If no sets left, remove the exercise
+          if (newSets.length === 0) {
+            handleRemoveExercise(exerciseId);
+            return e;
+          }
+
           return {
             ...e,
-            sets: e.sets
-              .filter(s => s.set_number !== setNumber)
-              .map((s, i) => ({ ...s, set_number: i + 1 })),
+            sets: newSets,
           };
         }
         return e;
@@ -97,101 +141,116 @@ export function WorkoutLogger() {
     );
   };
 
-  const handleRemoveExercise = (exerciseId: number) => {
-    setExercises(prev => prev.filter(e => e.exercise.id !== exerciseId));
-  };
-
-  const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
-
-      const response = await fetch('/api/workout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          exercises: exercises.map(e => ({
-            exercise_id: e.exercise.id,
-            sets: e.sets.map(s => ({
-              reps: s.reps,
-              weight: s.weight,
-            })),
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create workout');
-      }
-
+  const handleSaveWorkout = async () => {
+    // Validate that we have at least one exercise with sets
+    if (exercises.length === 0) {
       toast({
-        title: 'Workout logged successfully',
-        type: 'success',
+        title: 'No exercises added',
+        description: 'Please add at least one exercise with sets.',
+        variant: 'destructive',
       });
-
-      router.push('/dashboard');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to log workout',
-        type: 'error',
-      });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    // Validate that all exercises have valid sets
+    const hasInvalidSets = exercises.some(e =>
+      e.sets.some(s => s.reps === 0 || s.weight === 0)
+    );
+
+    if (hasInvalidSets) {
+      toast({
+        title: 'Invalid sets',
+        description: 'Please ensure all sets have non-zero reps and weight.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Prepare the workout data
+    const sets = exercises.flatMap(e =>
+      e.sets.map(s => ({
+        exercise_id: e.exercise.id,
+        set_number: s.set_number,
+        reps: s.reps,
+        weight: s.weight,
+      }))
+    );
+
+    saveWorkoutMutation.mutate({ sets });
   };
 
   return (
-    <div className="space-y-4">
-      <ExerciseSelector onSelect={handleAddExercise} />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Log Workout</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ExerciseSelector
+            selectedExercises={selectedExercises}
+            onSelect={handleAddExercise}
+            onRemove={handleRemoveExercise}
+          />
 
-      {exercises.map(({ exercise, sets }) => (
-        <Card key={exercise.id}>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">{exercise.name}</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRemoveExercise(exercise.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+          {exercises.map(({ exercise, sets }) => (
+            <Card key={exercise.id} className="mt-4">
+              <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-base font-medium">{exercise.name}</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveExercise(exercise.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sets.map((set) => (
+                  <SetLogger
+                    key={set.set_number}
+                    setNumber={set.set_number}
+                    reps={set.reps}
+                    weight={set.weight}
+                    onUpdate={(updates) =>
+                      handleUpdateSet(exercise.id, set.set_number, updates)
+                    }
+                    onRemove={() => handleRemoveSet(exercise.id, set.set_number)}
+                  />
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleAddSet(exercise.id)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Set
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
 
-            <div className="space-y-4">
-              {sets.map(set => (
-                <SetLogger
-                  key={set.set_number}
-                  set={set}
-                  onUpdate={updates => handleUpdateSet(exercise.id, set.set_number, updates)}
-                  onRemove={() => handleRemoveSet(exercise.id, set.set_number)}
-                />
-              ))}
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => handleAddSet(exercise.id)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Set
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-
-      {exercises.length > 0 && (
-        <Button
-          className="w-full"
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Saving...' : 'Save Workout'}
-        </Button>
-      )}
+          {exercises.length > 0 && (
+            <Button
+              className="w-full"
+              onClick={handleSaveWorkout}
+              disabled={saveWorkoutMutation.isPending}
+            >
+              {saveWorkoutMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Workout
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
