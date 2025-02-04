@@ -1,104 +1,151 @@
 'use client';
 
-import { useEffect } from 'react';
-import { format } from 'date-fns';
-import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useWorkoutStore } from '@/lib/store/workout-store';
-import { useUIStore } from '@/lib/store/ui-store';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/use-toast';
+import type { Workout } from '@/types/api';
+import { useQuery } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
+import { ChevronRight, Dumbbell } from 'lucide-react';
 
 export function WorkoutHistory() {
-  const { workoutHistory, setWorkoutHistory } = useWorkoutStore();
-  const { selectedDate, setSelectedDate } = useUIStore();
+  const { toast } = useToast();
+  const { data: workouts, isLoading, error } = useQuery<Workout[]>({
+    queryKey: ['workouts'],
+    queryFn: async () => {
+      const response = await fetch('/api/workouts');
+      if (!response.ok) throw new Error('Failed to fetch workouts');
+      return response.json();
+    },
+  });
 
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      try {
-        const response = await fetch('/api/workouts');
-        if (!response.ok) throw new Error('Failed to fetch workouts');
-        const data = await response.json();
-        setWorkoutHistory(data || []); // Ensure we always set an array
-      } catch (error) {
-        console.error('Failed to fetch workouts:', error);
-        setWorkoutHistory([]); // Set empty array on error
-      }
-    };
+  if (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to load workout history',
+      type: 'error',
+    });
+    return null;
+  }
 
-    fetchWorkouts();
-  }, [setWorkoutHistory]);
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-32" />
+      </div>
+    );
+  }
 
-  const selectedWorkouts = workoutHistory?.filter(
-    workout => workout?.created_at && 
-      format(new Date(workout.created_at), 'yyyy-MM-dd') === 
-      format(selectedDate || new Date(), 'yyyy-MM-dd')
-  ) || [];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  if (!workouts?.length) {
+    return (
       <Card>
-        <CardHeader>
-          <CardTitle>Calendar</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date: Date | undefined) => setSelectedDate(date)}
-            className="rounded-md border"
-            required={false}
-          />
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">No workouts found</p>
         </CardContent>
       </Card>
+    );
+  }
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Workouts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[300px] w-full">
-            {workoutHistory?.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                <p className="text-muted-foreground mb-4">
-                  No workouts found. Start tracking your fitness journey today!
-                </p>
-                <Button asChild>
-                  <Link href="/workout">Start Workout</Link>
-                </Button>
+  return (
+    <div className="space-y-4">
+      {workouts.map((workout) => (
+        <WorkoutCard key={workout.id} workout={workout} />
+      ))}
+    </div>
+  );
+}
+
+interface WorkoutCardProps {
+  workout: Workout;
+}
+
+function WorkoutCard({ workout }: WorkoutCardProps) {
+  const { toast } = useToast();
+
+  const totalVolume = workout.exercises.reduce(
+    (total, exercise) =>
+      total +
+      exercise.sets.reduce((setTotal, set) => setTotal + set.weight * set.reps, 0),
+    0
+  );
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`/api/workouts/${workout.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete workout');
+
+      toast({
+        title: 'Workout Deleted',
+        description: 'Your workout has been successfully deleted.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete workout. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle>{format(parseISO(workout.date), 'MMMM d, yyyy')}</CardTitle>
+            <CardDescription>
+              {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''} |{' '}
+              {totalVolume.toLocaleString()} kg total volume
+            </CardDescription>
+          </div>
+          <Button variant="ghost" size="icon">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {workout.exercises.map((exercise) => (
+            <div key={exercise.exercise.id} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                <h4 className="font-medium">{exercise.exercise.name}</h4>
               </div>
-            ) : selectedWorkouts.length === 0 ? (
-              <div className="text-center text-muted-foreground p-4">
-                No workouts found for this date
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {selectedWorkouts.map((workout) => (
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                {exercise.sets.map((set, index) => (
                   <div
-                    key={workout.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    key={index}
+                    className="flex items-center justify-between rounded-md border px-2 py-1"
                   >
-                    <div>
-                      <p className="font-medium">
-                        {format(new Date(workout.created_at), 'h:mm a')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {workout.exercises?.length || 0} exercises
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/workout/${workout.id}`}>
-                        View Details
-                      </Link>
-                    </Button>
+                    <span className="text-muted-foreground">Set {index + 1}</span>
+                    <span>
+                      {set.weight}kg × {set.reps}
+                    </span>
                   </div>
                 ))}
               </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button variant="destructive" size="sm" onClick={handleDelete}>
+          Delete Workout
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

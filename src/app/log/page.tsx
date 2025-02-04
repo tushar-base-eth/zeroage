@@ -1,94 +1,64 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { useWorkoutStore } from '@/lib/store/workout-store';
-import type { Workout } from '@/types/workout';
+import { useQuery } from '@tanstack/react-query';
+import type { Workout } from '@/types/api';
 
 export default function LogPage() {
   const [date, setDate] = useState<Date>(new Date());
-  const [workoutDates, setWorkoutDates] = useState<string[]>([]);
   const [selectedWorkouts, setSelectedWorkouts] = useState<Workout[]>([]);
-  const { workoutHistory, setWorkoutHistory } = useWorkoutStore();
 
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      try {
-        const response = await fetch('/api/workouts');
-        if (!response.ok) throw new Error('Failed to fetch workouts');
-        const data = await response.json();
-        setWorkoutHistory(data);
-        
-        // Extract unique dates
-        const dates = [...new Set(data.map((w: Workout) => w.date))];
-        setWorkoutDates(dates);
-        
-        // Set initial selected workouts
-        const today = format(new Date(), 'yyyy-MM-dd');
-        setSelectedWorkouts(data.filter((w: Workout) => w.date === today));
-      } catch (error) {
-        console.error('Failed to fetch workouts:', error);
-      }
-    };
-
-    fetchWorkouts();
-  }, [setWorkoutHistory]);
+  const { data: workouts } = useQuery<Workout[]>({
+    queryKey: ['workouts'],
+    queryFn: async () => {
+      const response = await fetch('/api/workouts');
+      if (!response.ok) throw new Error('Failed to fetch workouts');
+      return response.json();
+    },
+  });
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
     setDate(date);
     const selectedDate = format(date, 'yyyy-MM-dd');
-    setSelectedWorkouts(workoutHistory.filter(w => w.date === selectedDate));
+    const filteredWorkouts = workouts?.filter(w => 
+      format(new Date(w.created_at), 'yyyy-MM-dd') === selectedDate
+    ) || [];
+    setSelectedWorkouts(filteredWorkouts);
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 p-4">
-        <div className="w-full max-w-md mx-auto space-y-4">
-          {/* Calendar */}
+    <div className="min-h-screen flex flex-col pb-[72px]">
+      <div className="container py-8 flex-1">
+        <h1 className="text-3xl font-bold mb-8">Workout Log</h1>
+
+        <div className="grid gap-8 md:grid-cols-2">
           <Card>
-            <CardContent className="p-3">
+            <CardContent className="p-6">
               <Calendar
                 mode="single"
                 selected={date}
                 onSelect={handleDateSelect}
-                modifiers={{ workout: date => workoutDates.includes(format(date, 'yyyy-MM-dd')) }}
-                modifiersStyles={{
-                  workout: {
-                    backgroundColor: '#22c55e',
-                    color: 'white',
-                    borderRadius: '100%'
-                  }
-                }}
+                className="rounded-md border"
               />
             </CardContent>
           </Card>
 
-          {/* Workout History */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {selectedWorkouts.map((workout) => (
-              <Card key={workout.id} className="bg-white">
-                <CardContent className="p-3">
+              <Card key={workout.id}>
+                <CardContent className="p-6">
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div className="font-medium">{format(new Date(workout.date), 'MMM d, yyyy')}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {workout.exercises.length} exercises
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-muted-foreground">Total Sets</div>
-                      <div>{workout.exercises.reduce((acc, e) => acc + e.sets.length, 0)}</div>
-                      <div className="text-muted-foreground">Total Volume</div>
-                      <div>
-                        {workout.exercises.reduce((acc, e) => 
-                          acc + e.sets.reduce((setAcc, s) => setAcc + (s.reps * s.weight), 0), 0
-                        )} kg
-                      </div>
-                    </div>
+                    <p className="font-medium">
+                      {format(new Date(workout.created_at), 'MMMM d, yyyy')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {workout.workout_sets?.length || 0} sets
+                    </p>
                   </div>
                 </CardContent>
               </Card>

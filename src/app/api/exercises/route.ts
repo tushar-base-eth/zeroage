@@ -5,18 +5,18 @@ import { ExerciseSchema } from '@/lib/validations/schema';
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data } = await supabase.from('exercises').select('*');
     return NextResponse.json(data);
   } catch {
-    return NextResponse.json({ error: 'Failed to fetch exercises' }, { status: 500 });
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const json = await request.json();
     

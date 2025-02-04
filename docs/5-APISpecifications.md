@@ -32,38 +32,8 @@
     ]
     ```
 
-### 4. Fetch Workouts for Body Page Calculation
-- **GET /api/workouts?date=YYYY-MM-DD**
-  - **Description:** Called twice: Once for today, once for yesterday.
-  - **Response Example:**
-    ```json
-    [
-      {
-        "workout_id": 123,
-        "timestamp": "2025-02-03T18:30:00Z",
-        "exercises": [
-          {
-            "exercise_id": 10,
-            "name": "Bench Press",
-            "primary_muscle": "Chest",
-            "sets": [
-              { "set_number": 1, "reps": 10, "weight": 80 },
-              { "set_number": 2, "reps": 8, "weight": 85 },
-              { "set_number": 3, "reps": 6, "weight": 90 }
-            ]
-          }
-        ]
-      }
-    ]
-    ```
-  - **Processing Steps:**
-    1. Compute total volume for each muscle.
-    2. Sum up today + yesterday.
-    3. Assign color intensity.
 
-*Note: Error responses are described at a high level.*
-
-### 5. Handling Incomplete Data in the API
+### 4. Handling Incomplete Data in the API
 
 #### Data Validation
 - **Missing Data Detection**
@@ -99,5 +69,5 @@
 - Incomplete entries are marked visually in the UI
 - Data synchronization occurs when missing fields are completed
 
-### 6. API Error Handling
+### 5. API Error Handling
 - High-level error responses are sufficient at this stage.

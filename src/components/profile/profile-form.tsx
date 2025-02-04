@@ -1,169 +1,181 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Profile, ProfileFormData } from "@/types/profile"
-import { createClient } from "@/lib/supabase/client"
-import { toast } from "@/lib/hooks/useToast"
-import { useRouter } from "next/navigation"
-
-const profileSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  unit: z.enum(["kg", "lbs"]),
-  weight: z.number().min(20, "Weight must be at least 20").max(500, "Weight must be less than 500"),
-  height: z.number().min(100, "Height must be at least 100cm").max(300, "Height must be less than 300cm"),
-  bodyFat: z.number().min(1, "Body fat must be at least 1%").max(50, "Body fat must be less than 50%").optional(),
-  dateOfBirth: z.string(),
-  gender: z.enum(["male", "female", "other"]),
-})
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { useQuery } from '@tanstack/react-query';
+import { ProfileSchema } from '@/lib/validations/schema';
+import type { Profile } from '@/types/api';
+import { useState } from 'react';
 
 interface ProfileFormProps {
-  profile: Profile
-  onSuccess?: () => void
+  initialData?: Profile;
 }
 
-export function ProfileForm({ profile, onSuccess }: ProfileFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
-  const router = useRouter()
+export function ProfileForm({ initialData }: ProfileFormProps) {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: profile.name,
-      unit: profile.unit,
-      weight: profile.weight,
-      height: profile.height,
-      bodyFat: profile.bodyFat,
-      dateOfBirth: profile.dateOfBirth,
-      gender: profile.gender,
+  const form = useForm<Profile>({
+    resolver: zodResolver(ProfileSchema),
+    defaultValues: initialData || {
+      name: '',
+      unit: 'kg',
     },
-  })
+  });
 
-  const onSubmit = async (data: ProfileFormData) => {
+  async function onSubmit(data: Profile) {
     try {
-      setIsLoading(true)
-      const { error } = await supabase
-        .from("profiles")
-        .update(data)
-        .eq("id", profile.id)
+      setIsSubmitting(true);
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      if (error) {
-        toast.error(error.message)
-        return
-      }
+      if (!response.ok) throw new Error('Failed to update profile');
 
-      toast.success("Profile updated successfully!")
-      onSuccess?.()
-      router.refresh()
-    } catch {
-      toast.error("An error occurred while updating profile")
+      toast({
+        title: 'Success',
+        description: 'Profile updated successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update profile',
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profile Settings</CardTitle>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Input
-              type="text"
-              placeholder="Name"
-              {...register("name")}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <select
-              className="w-full p-2 border rounded"
-              {...register("unit")}
-            >
-              <option value="kg">Kilograms (kg)</option>
-              <option value="lbs">Pounds (lbs)</option>
-            </select>
-            {errors.unit && (
-              <p className="text-sm text-red-500">{errors.unit.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="number"
-              placeholder="Weight"
-              {...register("weight", { valueAsNumber: true })}
-            />
-            {errors.weight && (
-              <p className="text-sm text-red-500">{errors.weight.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="number"
-              placeholder="Height (cm)"
-              {...register("height", { valueAsNumber: true })}
-            />
-            {errors.height && (
-              <p className="text-sm text-red-500">{errors.height.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="number"
-              placeholder="Body Fat %"
-              {...register("bodyFat", { valueAsNumber: true })}
-            />
-            {errors.bodyFat && (
-              <p className="text-sm text-red-500">{errors.bodyFat.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="date"
-              {...register("dateOfBirth")}
-            />
-            {errors.dateOfBirth && (
-              <p className="text-sm text-red-500">{errors.dateOfBirth.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <select
-              className="w-full p-2 border rounded"
-              {...register("gender")}
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-            {errors.gender && (
-              <p className="text-sm text-red-500">{errors.gender.message}</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isLoading}
-          >
-            {isLoading ? "Saving..." : "Save Changes"}
-          </Button>
-        </CardFooter>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="weight"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Weight</FormLabel>
+              <FormControl>
+                <Input type="number" step="0.1" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="height"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Height</FormLabel>
+              <FormControl>
+                <Input type="number" step="0.1" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="body_fat"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Body Fat %</FormLabel>
+              <FormControl>
+                <Input type="number" step="0.1" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="date_of_birth"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date of Birth</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="gender"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Gender</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="unit"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Preferred Unit</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                  <SelectItem value="lbs">Pounds (lbs)</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Updating...' : 'Update Profile'}
+        </Button>
       </form>
-    </Card>
-  )
+    </Form>
+  );
 }

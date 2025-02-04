@@ -1,131 +1,90 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { WorkoutSchema } from '@/lib/validations/schema';
+import type { Workout } from '@/types/api';
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date');
+    const url = new URL(request.url);
+    const type = url.searchParams.get('type');
 
-    const query = supabase.from('workouts').select(`
-      id,
-      created_at,
-      notes,
-      exercises:workout_exercises (
-        exercise:exercises (
-          id,
-          name
-        ),
-        sets:exercise_sets (
-          id,
+    if (type === 'dates') {
+      const { data: dates, error } = await supabase
+        .from('workouts')
+        .select('created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return NextResponse.json(
+          { error: 'Failed to fetch workout dates' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(dates.map(d => d.created_at));
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const { data: workouts, error } = await supabase
+      .from('workouts')
+      .select(`
+        id,
+        date,
+        created_at,
+        workout_sets (
+          set_number,
           reps,
           weight,
-          unit
+          exercise:exercises (
+            id,
+            name,
+            primary_muscle,
+            secondary_muscles
+          )
         )
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to fetch workouts' },
+        { status: 500 }
+      );
+    }
+
+    // Transform data to match our API spec
+    const transformedWorkouts = workouts.map(workout => ({
+      id: workout.id,
+      date: workout.date,
+      created_at: workout.created_at,
+      exercises: Object.values(
+        workout.workout_sets.reduce((acc: any, set: any) => {
+          if (!acc[set.exercise.id]) {
+            acc[set.exercise.id] = {
+              exercise: set.exercise,
+              sets: []
+            };
+          }
+          acc[set.exercise.id].sets.push({
+            set_number: set.set_number,
+            reps: set.reps,
+            weight: set.weight
+          });
+          return acc;
+        }, {})
       )
-    `);
+    }));
 
-    if (date) {
-      query.eq('date', date);
-    }
-
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    query.eq('user_id', user.user.id).order('created_at', { ascending: false });
-
-    const { data } = await query;
-    return NextResponse.json(data);
-  } catch {
-    return NextResponse.json(
-      { error: 'Failed to fetch workouts' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const json = await request.json();
-
-    // Add date field
-    const workoutData = {
-      ...json,
-      date: new Date().toISOString().split('T')[0],
-    };
-
-    const result = WorkoutSchema.safeParse(workoutData);
-    if (!result.success) {
-      console.error('Validation error:', result.error);
-      return NextResponse.json(
-        { error: 'Invalid workout data', details: result.error.errors },
-        { status: 400 }
-      );
-    }
-
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const { data: workout, error: workoutError } = await supabase
-      .from('workouts')
-      .insert([{ 
-        user_id: user.user.id,
-        date: workoutData.date,
-        notes: workoutData.notes
-      }])
-      .select()
-      .single();
-
-    if (workoutError) throw workoutError;
-
-    // Create workout exercises and sets
-    for (const exercise of result.data.exercises) {
-      const { data: workoutExercise, error: exerciseError } = await supabase
-        .from('workout_exercises')
-        .insert([{
-          workout_id: workout.id,
-          exercise_id: exercise.exerciseId
-        }])
-        .select()
-        .single();
-
-      if (exerciseError) throw exerciseError;
-
-      const setsToInsert = exercise.sets.map(set => ({
-        workout_exercise_id: workoutExercise.id,
-        reps: set.reps,
-        weight: set.weight,
-        unit: set.unit
-      }));
-
-      const { error: setsError } = await supabase
-        .from('exercise_sets')
-        .insert(setsToInsert);
-
-      if (setsError) throw setsError;
-    }
-
-    return NextResponse.json(workout);
+    return NextResponse.json(transformedWorkouts as Workout[]);
   } catch (error) {
-    console.error('Failed to save workout:', error);
-    return NextResponse.json(
-      { error: 'Failed to save workout' },
-      { status: 500 }
-    );
+    console.error('Error fetching workouts:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

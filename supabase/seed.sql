@@ -1,18 +1,17 @@
--- Insert default exercises first
-INSERT INTO public.exercises (name, description, muscle_groups, equipment, is_custom)
-VALUES
-  ('Bench Press', 'Classic chest exercise', ARRAY['chest', 'triceps', 'shoulders'], 'barbell', false),
-  ('Squat', 'Fundamental lower body exercise', ARRAY['quadriceps', 'hamstrings', 'glutes'], 'barbell', false),
-  ('Deadlift', 'Full body pulling exercise', ARRAY['back', 'hamstrings', 'glutes'], 'barbell', false),
-  ('Pull Up', 'Upper body pulling exercise', ARRAY['back', 'biceps'], 'bodyweight', false),
-  ('Push Up', 'Bodyweight chest exercise', ARRAY['chest', 'triceps', 'shoulders'], 'bodyweight', false),
-  ('Overhead Press', 'Shoulder strength exercise', ARRAY['shoulders', 'triceps'], 'barbell', false),
-  ('Barbell Row', 'Back strength exercise', ARRAY['back', 'biceps'], 'barbell', false),
-  ('Dumbbell Curl', 'Bicep isolation exercise', ARRAY['biceps'], 'dumbbell', false),
-  ('Tricep Extension', 'Tricep isolation exercise', ARRAY['triceps'], 'dumbbell', false),
-  ('Leg Press', 'Machine leg exercise', ARRAY['quadriceps', 'hamstrings', 'glutes'], 'machine', false);
+-- Insert default exercises
+INSERT INTO public.exercises (name, muscle_groups, equipment, description) VALUES
+  ('Push-ups', ARRAY['chest', 'shoulders', 'arms'], 'bodyweight', 'Classic bodyweight exercise for upper body strength'),
+  ('Pull-ups', ARRAY['back', 'arms'], 'bodyweight', 'Upper body pulling exercise'),
+  ('Squats', ARRAY['legs'], 'bodyweight', 'Fundamental lower body exercise'),
+  ('Deadlift', ARRAY['back', 'legs'], 'barbell', 'Compound exercise for posterior chain'),
+  ('Bench Press', ARRAY['chest', 'shoulders', 'arms'], 'barbell', 'Classic chest exercise'),
+  ('Overhead Press', ARRAY['shoulders', 'arms'], 'barbell', 'Vertical pressing movement'),
+  ('Rows', ARRAY['back'], 'barbell', 'Horizontal pulling movement'),
+  ('Lunges', ARRAY['legs'], 'bodyweight', 'Unilateral leg exercise'),
+  ('Dips', ARRAY['chest', 'arms'], 'bodyweight', 'Upper body pushing exercise'),
+  ('Plank', ARRAY['core'], 'bodyweight', 'Core stability exercise');
 
--- Create sample users using Supabase auth functions
+-- Create sample users
 DO $$
 DECLARE
   user1_id UUID;
@@ -27,15 +26,98 @@ BEGIN
     row_num SERIAL
   );
 
-  -- Create users through auth.users() and store IDs
+  -- Insert users with properly hashed passwords
   WITH new_users AS (
-    INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-    VALUES
-      ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'user1@example.com', crypt('password123', gen_salt('bf')), now(), now(), now()),
-      ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'user2@example.com', crypt('password123', gen_salt('bf')), now(), now(), now()),
-      ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'user3@example.com', crypt('password123', gen_salt('bf')), now(), now(), now()),
-      ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'user4@example.com', crypt('password123', gen_salt('bf')), now(), now(), now()),
-      ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'user5@example.com', crypt('password123', gen_salt('bf')), now(), now(), now())
+    INSERT INTO auth.users (
+      instance_id,
+      id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      created_at,
+      updated_at,
+      confirmation_token,
+      recovery_token
+    ) VALUES
+      (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        'user11@example.com',
+        crypt('password123', gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}',
+        '{}',
+        now(),
+        now(),
+        '',
+        ''
+      ),
+      (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        'user22@example.com',
+        crypt('password123', gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}',
+        '{}',
+        now(),
+        now(),
+        '',
+        ''
+      ),
+      (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        'user33@example.com',
+        crypt('password123', gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}',
+        '{}',
+        now(),
+        now(),
+        '',
+        ''
+      ),
+      (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        'user44@example.com',
+        crypt('password123', gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}',
+        '{}',
+        now(),
+        now(),
+        '',
+        ''
+      ),
+      (
+        '00000000-0000-0000-0000-000000000000',
+        gen_random_uuid(),
+        'authenticated',
+        'authenticated',
+        'user55@example.com',
+        crypt('password123', gen_salt('bf')),
+        now(),
+        '{"provider":"email","providers":["email"]}',
+        '{}',
+        now(),
+        now(),
+        '',
+        ''
+      )
     RETURNING id
   )
   INSERT INTO temp_users (id)
@@ -51,11 +133,11 @@ BEGIN
   -- Insert profiles for users
   INSERT INTO public.profiles (id, username, full_name, avatar_url, created_at, updated_at)
   VALUES
-    (user1_id, 'johndoe', 'John Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=john', now(), now()),
-    (user2_id, 'janedoe', 'Jane Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane', now(), now()),
-    (user3_id, 'mikebrown', 'Mike Brown', 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike', now(), now()),
-    (user4_id, 'sarahlee', 'Sarah Lee', 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah', now(), now()),
-    (user5_id, 'alexsmith', 'Alex Smith', 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex', now(), now());
+    (user1_id, 'johndoe1', 'John Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=john', now(), now()),
+    (user2_id, 'janedoe2', 'Jane Doe', 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane', now(), now()),
+    (user3_id, 'mikebrown3', 'Mike Brown', 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike', now(), now()),
+    (user4_id, 'sarahlee4', 'Sarah Lee', 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah', now(), now()),
+    (user5_id, 'alexsmith5', 'Alex Smith', 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex', now(), now());
 
   -- Insert sample workouts
   INSERT INTO public.workouts (user_id, date, created_at)

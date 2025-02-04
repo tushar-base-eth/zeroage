@@ -31,8 +31,8 @@ const signupSchema = z.object({
   unit: z.enum(['kg', 'lbs']),
   height: z.number().min(1, 'Height must be greater than 0'),
   weight: z.number().min(1, 'Weight must be greater than 0'),
-  bodyFat: z.number().min(0, 'Body fat must be 0 or greater').max(100, 'Body fat must be 100 or less').optional(),
-  dateOfBirth: z.string(),
+  body_fat: z.number().min(0, 'Body fat must be 0 or greater').max(100, 'Body fat must be 100 or less').optional(),
+  date_of_birth: z.string(),
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
@@ -51,8 +51,8 @@ export default function SignupPage() {
       unit: 'kg',
       height: 0,
       weight: 0,
-      bodyFat: undefined,
-      dateOfBirth: '',
+      body_fat: undefined,
+      date_of_birth: '',
     },
   });
 
@@ -75,8 +75,8 @@ export default function SignupPage() {
         unit: data.unit,
         height: data.height,
         weight: data.weight,
-        bodyFat: data.bodyFat,
-        dateOfBirth: data.dateOfBirth,
+        body_fat: data.body_fat,
+        date_of_birth: data.date_of_birth,
       });
 
       if (profileError) throw profileError;
@@ -227,7 +227,7 @@ export default function SignupPage() {
 
             <FormField
               control={form.control}
-              name="bodyFat"
+              name="body_fat"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Body Fat % (Optional)</FormLabel>
@@ -245,7 +245,7 @@ export default function SignupPage() {
 
             <FormField
               control={form.control}
-              name="dateOfBirth"
+              name="date_of_birth"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Date of Birth</FormLabel>

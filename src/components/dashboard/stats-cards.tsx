@@ -1,82 +1,77 @@
 'use client';
 
-import { Activity, Calendar, Dumbbell, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useWorkoutStore } from '@/lib/store/workout-store';
-
-interface StatsCardProps {
-  title: string;
-  value: string | number;
-  description: string;
-  icon: React.ReactNode;
-}
-
-function StatsCard({ title, value, description, icon }: StatsCardProps) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import type { UserStats } from '@/types/api';
 
 export function StatsCards() {
-  const { workoutHistory } = useWorkoutStore();
+  const { data: stats, isLoading } = useQuery<UserStats>({
+    queryKey: ['user-stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/stats');
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
+  });
 
-  // Calculate stats
-  const totalWorkouts = workoutHistory.length;
-  
-  const lastWeekWorkouts = workoutHistory.filter(workout => {
-    const workoutDate = new Date(workout.created_at || '');
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return workoutDate >= weekAgo;
-  }).length;
-
-  const totalVolume = workoutHistory.reduce<number>((total, workout) => {
-    return total + (workout.exercises?.reduce((exerciseTotal, exercise) => {
-      return exerciseTotal + (exercise.sets?.reduce((setTotal, set) => {
-        return setTotal + (set.weight * set.reps);
-      }, 0) || 0);
-    }, 0) || 0);
-  }, 0);
-
-  const averageVolume = totalWorkouts > 0 
-    ? Math.round(totalVolume / totalWorkouts) 
-    : 0;
+  if (isLoading) {
+    return <StatsCardsSkeleton />;
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <StatsCard
-        title="Total Workouts"
-        value={totalWorkouts}
-        description="All time"
-        icon={<Dumbbell className="h-4 w-4 text-muted-foreground" />}
-      />
-      <StatsCard
-        title="Last 7 Days"
-        value={lastWeekWorkouts}
-        description="Active days"
-        icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
-      />
-      <StatsCard
-        title="Total Volume"
-        value={`${totalVolume.toLocaleString()} kg`}
-        description="All workouts"
-        icon={<Activity className="h-4 w-4 text-muted-foreground" />}
-      />
-      <StatsCard
-        title="Average Volume"
-        value={`${averageVolume.toLocaleString()} kg`}
-        description="Per workout"
-        icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
-      />
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Workouts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats?.total_workouts || 0}</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Volume</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats?.total_volume?.toLocaleString() || 0}</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats?.current_streak || 0} days</div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Best Streak</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats?.best_streak || 0} days</div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function StatsCardsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              <Skeleton className="h-4 w-[100px]" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-[60px]" />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
