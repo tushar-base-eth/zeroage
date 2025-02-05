@@ -1,14 +1,17 @@
 # Overview
 
 ## ZeroAge - Product Vision
-A fitness app designed for easy workout logging, muscle volume tracking, and personal health metrics management. The app follows a modern, light-mode design with a white background and colorful icons, using Shadcn/UI guidelines for components. It's built mobile-first with future-proofing for API integrations and mobile apps.
+A fitness webapp designed to help humans explore the next chapter of humanity where we are not only limited by physical boundaries but also by the limitations of our minds. This webapp is specifically designed to empower individuals to take control of their health and well-being, leading them on not only a path of physical fitness but also a path of self-discovery and well-being. This webapp aims to be a revolutionary AI friend that will motivate humans to live the best day of their lives every day by taking steps that are designed not to let them die. Every day based on their progress, the AI friend will recommend tasks tailored to their fitness level.
+
 
 ## Core Objectives
 - Simplify workout logging.
-- Monitor progress through dashboard [charts/reports].
+- Workout history records.
+- Achievements and progress tracking through dashboard [charts/reports/stats].
 
 ## Target Audience
-Fitness enthusiasts who want a simple yet effective way to log workouts and monitor progress.
+- Humans who are interested to try something new and want to not only stay fit but reverse their aging.
+- Fitness enthusiasts who want a simple yet effective way to log workouts and monitor progress.
 
 ### Functional Requirements
 # Functional Requirements
@@ -18,26 +21,41 @@ Fitness enthusiasts who want a simple yet effective way to log workouts and moni
 ### 1. Singup/SignIn Authentication
 - **Methods:** Email/password login and Google OAuth via Supabase Auth.
 
-### 2. User Profile Management
-- **Metrics:** Name, Unit [KG/LBS], Weight, height, body fat percentage, date of birth, and gender.
-- **Editing:** Users can update profile details via a Settings page.
+### 2. User Profile/Settings Management
+- **Profile Details:** Name, email, about meweight, height, body fat percentage, date of birth, and gender.
+- **Settings:** theme, Unit [KG/LBS], time zone, location, race, ethinicity, feedback and logout.
+- **Editing:** Users can update profile details via a Profile page.
 
 ### 3. Workout Logging
-- Users can select multiple predefined exercises.
-- Edit sets/reps/weight for each exercise.
-- Save workout session
+- User can log multiple workouts in a day.
+- Each workout can have multiple exercises.
+- Users can add exercises from a list of multiple predefined exercises.
+  - User should be able to starred and unstar an exercise.
+  - Starred exercises should appear at the top of the list.
+  - User should be able to search for exercises by name.
+  - Exercise list should have an option to group exercises based on muscle groups [primary/secondary].
+- User can log multiple exercises for each workout.
+- User can log multiple sets for each exercise.
+- User can log different reps for each set.
+- User can log different weight for each set.
 
 ### 4. Workout History
-- Users should able to see their workout history.
-- User can select a day in a calander to see their workout history for that day.
-- User can scroll history to see previous days.
+- Users should able to see their workouts history which will be displayed in scrollable card format in descending order of date.
+  - Each workout should have a title, date, and a count of exercises with total volume.
+   - Total volume should be calculated based on the sets and reps logged for each exercise.
+   - Clicking on each workout should lead to a detailed view of the workout.
+    - Detailed view should include title, date, exercises, sets, and weight/reps for each set. 
+- User can select a day in a calander to see their workouts history for that day.
+- Calenar should highlight days where user has logged a workout.
+- For now, workout history is limited to read only.
 
 ### 4. Dashboard
-- User can see their total number of workouts and total volume.
-- User can see volume for various muscles.
-- **Range Selection:** Options include week, month, 6 months, and year.
-- **Chart Display:** Horizontal scrollable cards show bar charts for each muscle group.
-- **Calculation:** Aggregations are done in Supabase using SQL with proper indexing.
+- User can standard metrics to track progress for example, total number of workouts, total volume, streaks, etc.
+- User can some interesting visualizations to track progress, such as volume for various muscles.
+  - - **Range Selection:** Options include week, month, 6 months, and year.
+  - - **Chart Display:** Horizontal scrollable cards show bar charts for each muscle group.
+- User can also see a trendline of progressive overload of their muscles over time.
+
 
 # Database Schema & API Specifications
 - refer to 5-DatabaseAndAPI.md 
