@@ -22,7 +22,7 @@ A fitness webapp designed to help humans explore the next chapter of humanity wh
 - **Methods:** Email/password login and Google OAuth via Supabase Auth.
 
 ### 2. User Profile/Settings Management
-- **Profile Details:** Name, email, about meweight, height, body fat percentage, date of birth, and gender.
+- **Profile Details:** Name, email, about me, weight, height, body fat percentage, date of birth, and gender.
 - **Settings:** theme, Unit [KG/LBS], time zone, location, race, ethinicity, feedback and logout.
 - **Editing:** Users can update profile details via a Profile page.
 
